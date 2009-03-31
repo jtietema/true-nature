@@ -3,7 +3,7 @@ from direct.task import Task
 import math
 
 # load the street-scene
-street = loader.loadModel("models/course1/course1")
+street = loader.loadModel("models/course1/course1.egg")
 street.reparentTo(render)
 street.setScale(0.25, 0.25, 0.25)
 
