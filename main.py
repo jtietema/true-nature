@@ -29,6 +29,7 @@ class World(DirectObject):
             'walk': 'models/ralph/ralph-walk.egg.pz'
         })
         self.ralph.reparentTo(render)
+        self.ralph.setScale(0.2)
         self.ralph.setPos(self.env.find('**/start_point').getPos())
         
         # Create a floater object that always floats 2 units above Ralph.
@@ -41,6 +42,8 @@ class World(DirectObject):
         # Disable any mouse input, including moving the camera around with
         # the mouse.
         base.disableMouse()
+        
+        self.createCollisionHandlers()
         
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.ralph.getX(), self.ralph.getY() + 10, 2)
@@ -60,6 +63,22 @@ class World(DirectObject):
         # Schedule the move method to be executed in the game's main loop.
         taskMgr.add(self.move, 'move')
     
+    def createCollisionHandlers(self):
+        # Create a new collision traverser instance. We will use this to determine
+        # if any collisions occurred after performing movement.
+        self.cTrav = CollisionTraverser()
+        
+        camGroundRay = CollisionRay()
+        camGroundRay.setOrigin(0, 0, 1000)
+        camGroundRay.setDirection(0, 0, -1)
+        camGroundCol = CollisionNode('camRay')
+        camGroundCol.addSolid(camGroundRay)
+        camGroundCol.setFromCollideMask(BitMask32.bit(0))
+        camGroundCol.setIntoCollideMask(BitMask32.allOff())
+        camGroundColNp = base.camera.attachNewNode(self.camGroundCol)
+        self.camGroundHandler = CollisionHandlerQueue()
+        self.cTrav.addCollider(self.camGroundColNp, self.camGroundHandler)
+        
     def setKey(self, key, value):
         self.keyMap[key] = value
     
@@ -77,8 +96,15 @@ class World(DirectObject):
         if self.keyMap["backward"] != 0:
             self.ralph.setY(self.ralph, timePassed*25)
         
-        # Set the camera to look at the floater object above Ralph.
+        # Set the initial position for the camera as X, Y and Z values.
+        base.camera.setPos(self.ralph.getX(), self.ralph.getY() + 10, 2)
+        
+        # Set the heading, pitch and roll of the camera.
+        base.camera.setHpr(self.ralph.getH(), 0, 0)
+        
+        # Let the camera look at the floater object above Ralph.
         base.camera.lookAt(self.floater)
+        
         return Task.cont
 
 w = World()
