@@ -43,6 +43,11 @@ class World(DirectObject):
         self.floater.reparentTo(self.ralph)
         self.floater.setZ(self.floater.getZ() + 2)
         
+        # load baseball
+        self.baseball = loader.loadModel("models/baseball/baseball.egg")
+        self.baseball.reparentTo(render)
+        self.baseball.setPos(self.ralph.getPos())
+        
         # Disable any mouse input, including moving the camera around with
         # the mouse.
         base.disableMouse()
@@ -92,6 +97,7 @@ class World(DirectObject):
         self.camGroundHandler = CollisionHandlerQueue()
         self.cTrav.addCollider(base.camera.attachNewNode(camGroundCol), self.camGroundHandler)
         
+                
     def setKey(self, key, value):
         self.keyMap[key] = value
     
