@@ -43,7 +43,7 @@ class World(DirectObject):
         # the mouse.
         base.disableMouse()
         
-        self.createCollisionHandlers()
+        # self.createCollisionHandlers()
         
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.ralph.getX(), self.ralph.getY() + 10, 2)
@@ -95,12 +95,15 @@ class World(DirectObject):
             self.ralph.setY(self.ralph, -(timePassed*25))
         if self.keyMap["backward"] != 0:
             self.ralph.setY(self.ralph, timePassed*25)
-        
+            
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.ralph.getX(), self.ralph.getY() + 10, 2)
+        base.camera.setPos(self.ralph.getPos())
         
         # Set the heading, pitch and roll of the camera.
-        base.camera.setHpr(self.ralph.getH(), 0, 0)
+        base.camera.setHpr(self.ralph.getHpr())
+        
+        base.camera.setY(base.camera, 10)
+        base.camera.setZ(base.camera, 2)
         
         # Let the camera look at the floater object above Ralph.
         base.camera.lookAt(self.floater)
