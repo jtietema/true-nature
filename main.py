@@ -5,6 +5,8 @@ from direct.task import Task
 from direct.showbase.DirectObject import DirectObject
 from pandac.PandaModules import PandaNode, NodePath, Camera, TextNode
 from pandac.PandaModules import Vec3, Vec4, BitMask32
+from pandac.PandaModules import CollisionTraverser, CollisionNode
+from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
 from direct.actor.Actor import Actor
 
 class World(DirectObject):
@@ -43,7 +45,7 @@ class World(DirectObject):
         # the mouse.
         base.disableMouse()
         
-        # self.createCollisionHandlers()
+        self.createCollisionHandlers()
         
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.ralph.getX(), self.ralph.getY() + 10, 2)
@@ -68,6 +70,16 @@ class World(DirectObject):
         # if any collisions occurred after performing movement.
         self.cTrav = CollisionTraverser()
         
+        ralphGroundRay = CollisionRay()
+        ralphGroundRay.setOrigin(0, 0, 1000)
+        ralphGroundRay.setDirection(0, 0, -1)
+        ralphGroundCol = CollisionNode('ralphRay')
+        ralphGroundCol.addSolid(ralphGroundRay)
+        ralphGroundCol.setFromCollideMask(BitMask32.bit(0))
+        ralphGroundCol.setIntoCollideMask(BitMask32.allOff())
+        self.ralphGroundHandler = CollisionHandlerQueue()
+        self.cTrav.addCollider(self.ralph.attachNewNode(ralphGroundCol), self.ralphGroundHandler)
+        
         camGroundRay = CollisionRay()
         camGroundRay.setOrigin(0, 0, 1000)
         camGroundRay.setDirection(0, 0, -1)
@@ -75,9 +87,8 @@ class World(DirectObject):
         camGroundCol.addSolid(camGroundRay)
         camGroundCol.setFromCollideMask(BitMask32.bit(0))
         camGroundCol.setIntoCollideMask(BitMask32.allOff())
-        camGroundColNp = base.camera.attachNewNode(self.camGroundCol)
         self.camGroundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(self.camGroundColNp, self.camGroundHandler)
+        self.cTrav.addCollider(base.camera.attachNewNode(camGroundCol), self.camGroundHandler)
         
     def setKey(self, key, value):
         self.keyMap[key] = value
@@ -85,6 +96,8 @@ class World(DirectObject):
     def move(self, task):
         # get the time passed since the last frame
         timePassed = globalClock.getDt()
+        
+        startPos = self.ralph.getPos()
         
         # process the controls
         if self.keyMap["left"] != 0:
@@ -95,20 +108,54 @@ class World(DirectObject):
             self.ralph.setY(self.ralph, -(timePassed*25))
         if self.keyMap["backward"] != 0:
             self.ralph.setY(self.ralph, timePassed*25)
-            
+        
+        # Do collision detection. This iterates all the collider nodes and 
+        self.cTrav.traverse(render)
+        
+        # Iterate all the collisions that were found for Ralph's collision ray
+        # and determine the highest value.
+        ralphGroundEntry = self.getGroundEntry(self.ralphGroundHandler)
+        if ralphGroundEntry is not None and ralphGroundEntry.getIntoNode().getName() == 'terrain':
+            # Limit Ralph's Z to the highest Z found in the collision entries list.
+            self.ralph.setZ(ralphGroundEntry.getSurfacePoint(render).getZ())
+        else:
+            # We are outside the map, or trying to access an area that we cannot enter.
+            # Prevent the move.
+            self.ralph.setPos(startPos)
+        
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.ralph.getPos())
-        
+
         # Set the heading, pitch and roll of the camera.
         base.camera.setHpr(self.ralph.getHpr())
         
         base.camera.setY(base.camera, 10)
-        base.camera.setZ(base.camera, 2)
+        
+        camGroundEntry = self.getGroundEntry(self.camGroundHandler)
+        if camGroundEntry is not None and camGroundEntry.getIntoNode().getName() == 'terrain':
+            base.camera.setZ(camGroundEntry.getSurfacePoint(render).getZ() + 1.5)
         
         # Let the camera look at the floater object above Ralph.
         base.camera.lookAt(self.floater)
         
         return Task.cont
+    
+    def getGroundEntry(self, collisionHandler):
+        # Put all the collision entries into a Python list so we can sort it,
+        # properly.
+        entries = []
+        for i in range(collisionHandler.getNumEntries()):
+            entries.append(collisionHandler.getEntry(i))
+        
+        # Sort the list by the collision points' Z values, making sure the
+        # highest value ends up at the front of the list.
+        entries.sort(lambda x, y: cmp(y.getSurfacePoint(render).getZ(),
+                                      x.getSurfacePoint(render).getZ()))
+        
+        if len(entries) > 0:
+            return entries[0]
+        else:
+            return None
 
 w = World()
 run()
