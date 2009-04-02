@@ -7,16 +7,19 @@ from pandac.PandaModules import PandaNode, NodePath, Camera, TextNode
 from pandac.PandaModules import Vec3, Vec4, BitMask32
 from pandac.PandaModules import CollisionTraverser, CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
+from pandac.PandaModules import ModifierButtons
 from direct.actor.Actor import Actor
+import keys
 
 class World(DirectObject):
     def __init__(self):
         self.isMoving = False
+        self.isWalking = False
         
         base.win.setClearColor(Vec4(0, 0, 0, 1))
         
         # set defailt key actions
-        self.keyMap = {"left": 0, "right": 0, "forward": 0, "backward": 0}
+        self.keyMap = {}
         
         # Load the environment in which Ralph will walk. Set its parent
         # to the render variable so that it is a top-level node.
@@ -51,21 +54,27 @@ class World(DirectObject):
         
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.ralph.getX(), self.ralph.getY() + 10, 2)
+        
+        # Disable modifier button compound events.
+        base.mouseWatcherNode.setModifierButtons(ModifierButtons())
+        base.buttonThrowers[0].node().setModifierButtons(ModifierButtons())
 
         # init the control callbacks
-        self.accept("escape", sys.exit)
-        self.accept("arrow_left", self.setKey, ["left", 1])
-        self.accept("arrow_right", self.setKey, ["right", 1])
-        self.accept("arrow_up", self.setKey, ["forward", 1])
-        self.accept("arrow_down", self.setKey, ["backward", 1])
+        self.accept('escape', sys.exit)
         
-        self.accept("arrow_left-up", self.setKey, ["left", 0])
-        self.accept("arrow_right-up", self.setKey, ["right", 0])
-        self.accept("arrow_up-up", self.setKey, ["forward", 0])
-        self.accept("arrow_down-up", self.setKey, ["backward", 0])
+        self.keys = keys.KeyStateManager()
+        self.keys.registerKeys({
+            'arrow_left':   'left',
+            'arrow_right':  'right',
+            'arrow_up':     'forward',
+            'arrow_down':   'backward',
+            'shift':        'shift'
+        })
         
         # Schedule the move method to be executed in the game's main loop.
         taskMgr.add(self.move, 'move')
+    
+    
     
     def createCollisionHandlers(self):
         # Create a new collision traverser instance. We will use this to determine
@@ -79,8 +88,9 @@ class World(DirectObject):
         ralphGroundCol.addSolid(ralphGroundRay)
         ralphGroundCol.setFromCollideMask(BitMask32.bit(0))
         ralphGroundCol.setIntoCollideMask(BitMask32.allOff())
+        ralphGroundColNp = self.ralph.attachNewNode(ralphGroundCol)
         self.ralphGroundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(self.ralph.attachNewNode(ralphGroundCol), self.ralphGroundHandler)
+        self.cTrav.addCollider(ralphGroundColNp, self.ralphGroundHandler)
         
         camGroundRay = CollisionRay()
         camGroundRay.setOrigin(0, 0, 1000)
@@ -89,8 +99,9 @@ class World(DirectObject):
         camGroundCol.addSolid(camGroundRay)
         camGroundCol.setFromCollideMask(BitMask32.bit(0))
         camGroundCol.setIntoCollideMask(BitMask32.allOff())
+        camGroundColNp = base.camera.attachNewNode(camGroundCol)
         self.camGroundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(base.camera.attachNewNode(camGroundCol), self.camGroundHandler)
+        self.cTrav.addCollider(camGroundColNp, self.camGroundHandler)
         
     def setKey(self, key, value):
         self.keyMap[key] = value
@@ -102,18 +113,23 @@ class World(DirectObject):
         startPos = self.ralph.getPos()
         
         # process the controls
-        if self.keyMap["left"] != 0:
+        if self.keys.isPressed('left'):
             self.ralph.setH(self.ralph.getH() + timePassed * 300)
-        if self.keyMap["right"] != 0:
+        if self.keys.isPressed('right'):
             self.ralph.setH(self.ralph.getH() - timePassed * 300)
-        if self.keyMap["forward"] != 0:
+        if self.keys.isPressed('forward'):
             self.ralph.setY(self.ralph, -(timePassed*25))
-        if self.keyMap["backward"] != 0:
+        if self.keys.isPressed('backward'):
             self.ralph.setY(self.ralph, timePassed*25)
         
-        if self.keyMap['forward'] <> 0 or self.keyMap['backward'] <> 0:
+        self.isWalking = self.keys.isPressed('shift')
+        
+        if self.keys.isPressed('forward') or self.keys.isPressed('backward'):
             if self.isMoving is False:
-                self.ralph.loop('run')
+                if self.isWalking:
+                    self.ralph.loop('walk')
+                else:
+                    self.ralph.loop('run')
                 self.isMoving = True
         elif self.isMoving:
                 self.ralph.stop()
