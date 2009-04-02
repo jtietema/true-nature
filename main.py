@@ -1,25 +1,39 @@
-import math
-
 import direct.directbase.DirectStart
 from direct.task import Task
 from direct.showbase.DirectObject import DirectObject
+from pandac.PandaModules import PandaNode, NodePath, Camera, TextNode
+from pandac.PandaModules import Vec3, Vec4, BitMask32
+from direct.actor.Actor import Actor
 
 class World(DirectObject):
     def __init__(self):
-        # load the street-scene
-        street = loader.loadModel("models/course1/course1.egg")
-        street.reparentTo(render)
-        street.setScale(0.25, 0.25, 0.25)
+        base.win.setClearColor(Vec4(0, 0, 0, 1))
         
-        taskMgr.add(self.rotate, "RotateCamera")
+        # Load the environment in which Ralph will walk. Set its parent
+        # to the render variable so that it is a top-level node.
+        self.env = loader.loadModel('models/world.egg.pz')
+        self.env.reparentTo(render)
+        self.env.setPos(0, 0, 0)
+        
+        # Create an Actor instance for Ralph.
+        self.ralph = Actor('models/ralph.egg.pz', {
+            'run': 'models/ralph-run.egg.pz',
+            'walk': 'models/ralph-walk.egg.pz'
+        })
+        self.ralph.reparentTo(render)
+        self.ralph.setPos(self.env.find('**/start_point').getPos())
+        
+        self.floater = NodePath(PandaNode('floater'))
+        self.floater.reparentTo(self.ralph)
+        self.floater.setZ(self.floater.getZ() + 2)
+        
+        base.disableMouse()
+        base.camera.setPos(self.ralph.getX() + 10, self.ralph.getY() + 10, 50)
+        
+        taskMgr.add(self.move, 'move')
     
-    # make the camera rotate
-    def rotate(self, task):
-        angledegrees = task.time * 6.0
-        base.camera.setH(base.camera.getH() + angledegrees)
-        base.camera.setZ(3.0)
-        base.camera.setP(-30)
-        return Task.cont
+    def move(self, task):
+        base.camera.lookAt(self.floater)
 
 w = World()
 run()
