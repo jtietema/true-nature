@@ -1,24 +1,25 @@
-import direct.directbase.DirectStart
-from direct.task import Task
 import math
 
-# load the street-scene
-street = loader.loadModel("models/course1/course1")
-street.reparentTo(render)
-street.setScale(0.25, 0.25, 0.25)
+import direct.directbase.DirectStart
+from direct.task import Task
+from direct.showbase.DirectObject import DirectObject
 
-# make the camera rotate
-def rotate(task):
-    angledegrees = task.time * 6.0
-    base.camera.setH(base.camera.getH() + angledegrees)
-    base.camera.setZ(3.0)
-    base.camera.setP(-30)
-    return Task.cont
+class World(DirectObject):
+    def __init__(self):
+        # load the street-scene
+        street = loader.loadModel("models/course1/course1")
+        street.reparentTo(render)
+        street.setScale(0.25, 0.25, 0.25)
+        
+        taskMgr.add(self.rotate, "RotateCamera")
+    
+    # make the camera rotate
+    def rotate(self, task):
+        angledegrees = task.time * 6.0
+        base.camera.setH(base.camera.getH() + angledegrees)
+        base.camera.setZ(3.0)
+        base.camera.setP(-30)
+        return Task.cont
 
-def printCamera(task):
-    print base.camera.getX(), base.camera.getY(), base.camera.getZ()
-    return Task.cont
-
-taskMgr.add(rotate, "RotateCamera")
-#taskMgr.add(printCamera, "PrintCamera")
+w = World()
 run()
