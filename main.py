@@ -9,6 +9,8 @@ from pandac.PandaModules import CollisionTraverser, CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
 from direct.actor.Actor import Actor
 
+from entity import Entity, Ralph, Baseball
+
 class World(DirectObject):
     def __init__(self):
         self.isMoving = False
@@ -24,38 +26,32 @@ class World(DirectObject):
         self.env.reparentTo(render)
         self.env.setPos(0, 0, 0)
         
+        self.createCollisionHandlers()
+        
         # Create an Actor instance for Ralph. We also specify the animation
         # models that we want to use as a dictionary, where we can use to
         # keys to refer to the animations later on. The start point of Ralph
         # is hardcoded in the world model somewhere, so we look that up.
-        self.ralph = Actor('models/ralph/ralph.egg.pz', {
-            'run': 'models/ralph/ralph-run.egg.pz',
-            'walk': 'models/ralph/ralph-walk.egg.pz'
-        })
-        self.ralph.reparentTo(render)
-        self.ralph.setScale(0.2)
-        self.ralph.setPos(self.env.find('**/start_point').getPos())
+        self.ralph = Ralph(self, self.env.find('**/start_point').getPos())
+        self.ralph.model.reparentTo(render)
         
         # Create a floater object that always floats 2 units above Ralph.
         # We make sure that it is attached to Ralph by reparenting it to
         # Ralph's object instance.
         self.floater = NodePath(PandaNode('floater'))
-        self.floater.reparentTo(self.ralph)
+        self.floater.reparentTo(self.ralph.model)
         self.floater.setZ(self.floater.getZ() + 2)
         
         # load baseball
-        self.baseball = loader.loadModel("models/baseball/baseball.egg")
-        self.baseball.reparentTo(render)
-        self.baseball.setPos(self.ralph.getPos())
+        self.baseball = Baseball(self, self.ralph.model.getPos())
+        self.baseball.model.reparentTo(render)
         
         # Disable any mouse input, including moving the camera around with
         # the mouse.
         base.disableMouse()
         
-        self.createCollisionHandlers()
-        
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.ralph.getX(), self.ralph.getY() + 10, 2)
+        base.camera.setPos(self.ralph.model.getX(), self.ralph.model.getY() + 10, 2)
 
         # init the control callbacks
         self.accept("escape", sys.exit)
@@ -77,16 +73,6 @@ class World(DirectObject):
         # if any collisions occurred after performing movement.
         self.cTrav = CollisionTraverser()
         
-        ralphGroundRay = CollisionRay()
-        ralphGroundRay.setOrigin(0, 0, 1000)
-        ralphGroundRay.setDirection(0, 0, -1)
-        ralphGroundCol = CollisionNode('ralphRay')
-        ralphGroundCol.addSolid(ralphGroundRay)
-        ralphGroundCol.setFromCollideMask(BitMask32.bit(0))
-        ralphGroundCol.setIntoCollideMask(BitMask32.allOff())
-        self.ralphGroundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(self.ralph.attachNewNode(ralphGroundCol), self.ralphGroundHandler)
-        
         camGroundRay = CollisionRay()
         camGroundRay.setOrigin(0, 0, 1000)
         camGroundRay.setDirection(0, 0, -1)
@@ -105,46 +91,20 @@ class World(DirectObject):
         # get the time passed since the last frame
         timePassed = globalClock.getDt()
         
-        startPos = self.ralph.getPos()
-        
-        # process the controls
-        if self.keyMap["left"] != 0:
-            self.ralph.setH(self.ralph.getH() + timePassed * 300)
-        if self.keyMap["right"] != 0:
-            self.ralph.setH(self.ralph.getH() - timePassed * 300)
-        if self.keyMap["forward"] != 0:
-            self.ralph.setY(self.ralph, -(timePassed*25))
-        if self.keyMap["backward"] != 0:
-            self.ralph.setY(self.ralph, timePassed*25)
-        
-        if self.keyMap['forward'] <> 0 or self.keyMap['backward'] <> 0:
-            if self.isMoving is False:
-                self.ralph.loop('run')
-                self.isMoving = True
-        elif self.isMoving:
-                self.ralph.stop()
-                self.ralph.pose('walk', 5)
-                self.isMoving = False
+        # update ralph
+        self.ralph.forceMove(timePassed)
         
         # Do collision detection. This iterates all the collider nodes and 
         self.cTrav.traverse(render)
         
-        # Iterate all the collisions that were found for Ralph's collision ray
-        # and determine the highest value.
-        ralphGroundEntry = self.getGroundEntry(self.ralphGroundHandler)
-        if ralphGroundEntry is not None and ralphGroundEntry.getIntoNode().getName() == 'terrain':
-            # Limit Ralph's Z to the highest Z found in the collision entries list.
-            self.ralph.setZ(ralphGroundEntry.getSurfacePoint(render).getZ())
-        else:
-            # We are outside the map, or trying to access an area that we cannot enter.
-            # Prevent the move.
-            self.ralph.setPos(startPos)
+        # check if ralph's move is valid
+        self.ralph.validateMove()
         
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.ralph.getPos())
+        base.camera.setPos(self.ralph.model.getPos())
 
         # Set the heading, pitch and roll of the camera.
-        base.camera.setHpr(self.ralph.getHpr())
+        base.camera.setHpr(self.ralph.model.getHpr())
         
         base.camera.setY(base.camera, 10)
         
