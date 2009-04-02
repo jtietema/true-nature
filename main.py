@@ -11,6 +11,8 @@ from direct.actor.Actor import Actor
 
 class World(DirectObject):
     def __init__(self):
+        self.isMoving = False
+        
         base.win.setClearColor(Vec4(0, 0, 0, 1))
         
         # set defailt key actions
@@ -108,6 +110,15 @@ class World(DirectObject):
             self.ralph.setY(self.ralph, -(timePassed*25))
         if self.keyMap["backward"] != 0:
             self.ralph.setY(self.ralph, timePassed*25)
+        
+        if self.keyMap['forward'] <> 0 or self.keyMap['backward'] <> 0:
+            if self.isMoving is False:
+                self.ralph.loop('run')
+                self.isMoving = True
+        elif self.isMoving:
+                self.ralph.stop()
+                self.ralph.pose('walk', 5)
+                self.isMoving = False
         
         # Do collision detection. This iterates all the collider nodes and 
         self.cTrav.traverse(render)
