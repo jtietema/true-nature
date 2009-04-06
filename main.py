@@ -12,7 +12,7 @@ from pandac.PandaModules import ModifierButtons
 from direct.actor.Actor import Actor
 import keys
 
-from entity import Entity, Eve, Ralph, Baseball, Panda
+from entity import Entity, Ralph, Eve, Baseball, Panda
 
 class World(DirectObject):
     def __init__(self):        
@@ -21,34 +21,35 @@ class World(DirectObject):
         # set defailt key actions
         self.keyMap = {}
         
-        # Load the environment in which Ralph will walk. Set its parent
-        # to the render variable so that it is a top-lralphl node.
+        # Load the environment in which Eve will walk. Set its parent
+        # to the render variable so that it is a top-lplayerl node.
         self.env = loader.loadModel('models/world/world.egg.pz')
         self.env.reparentTo(render)
         self.env.setPos(0, 0, 0)
         
         self.createCollisionHandlers()
         
-        # Create an Actor instance for Ralph. We also specify the animation
+        # Create an Actor instance for Eve. We also specify the animation
         # models that we want to use as a dictionary, where we can use to
-        # keys to refer to the animations later on. The start point of Ralph
+        # keys to refer to the animations later on. The start point of Eve
         # is hardcoded in the world model somewhere, so we look that up.
-        self.ralph = Ralph(self, self.env.find('**/start_point').getPos())
-        self.ralph.model.reparentTo(render)
+        self.player = Eve(self, self.env.find('**/start_point').getPos())
+        self.player.model.reparentTo(render)
         
-        # Create a floater object that always floats 2 units above Ralph.
-        # We make sure that it is attached to Ralph by reparenting it to
-        # Ralph's object instance.
+        # Create a floater object that always floats 2 units above Eve.
+        # We make sure that it is attached to Eve by reparenting it to
+        # Eve's object instance.
         self.floater = NodePath(PandaNode('floater'))
-        self.floater.reparentTo(self.ralph.model)
+        self.floater.reparentTo(self.player.model)
         self.floater.setZ(self.floater.getZ() + 2)
         
         # load baseball
-        self.baseball = Baseball(self, self.ralph.model.getPos())
+        self.baseball = Baseball(self, self.player.model.getPos())
         self.baseball.model.reparentTo(render)
+        self.player.pickUpItem(self.baseball)
         
         # Load the panda bear
-        self.panda = Panda(self, self.ralph.model.getPos())
+        self.panda = Panda(self, self.player.model.getPos())
         self.panda.model.reparentTo(render)
         
         # Disable any mouse input, including moving the camera around with
@@ -56,14 +57,15 @@ class World(DirectObject):
         base.disableMouse()
         
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.ralph.model.getX(), self.ralph.model.getY() + 10, 2)
+        base.camera.setPos(self.player.model.getX(), self.player.model.getY() + 10, 2)
         
-        # Disable modifier button compound ralphnts.
+        # Disable modifier button compound playernts.
         base.mouseWatcherNode.setModifierButtons(ModifierButtons())
         base.buttonThrowers[0].node().setModifierButtons(ModifierButtons())
 
         # init the control callbacks
         self.accept('escape', sys.exit)
+        self.accept('d', self.dropItem)
         
         self.keys = keys.KeyStateManager()
         self.keys.registerKeys({
@@ -99,26 +101,26 @@ class World(DirectObject):
     def setKey(self, key, value):
         self.keyMap[key] = value
     
-    def move(self, task):
+    def move(self, task):        
         # get the time passed since the last frame
         timePassed = globalClock.getDt()
 
-        # update ralph
-        self.ralph.forceMove(timePassed)
+        # update player
+        self.player.forceMove(timePassed)
         self.panda.forceMove(timePassed)
         
         # Do collision detection. This iterates all the collider nodes and 
         self.cTrav.traverse(render)
         
-        # check if ralph's move is valid
-        self.ralph.validateMove()
+        # check if player's move is valid
+        self.player.validateMove()
         self.panda.validateMove()
         
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.ralph.model.getPos())
+        base.camera.setPos(self.player.model.getPos())
 
         # Set the heading, pitch and roll of the camera.
-        base.camera.setHpr(self.ralph.model.getHpr())
+        base.camera.setHpr(self.player.model.getHpr())
         
         base.camera.setY(base.camera, 10)
         
@@ -126,10 +128,13 @@ class World(DirectObject):
         if camGroundEntry is not None and camGroundEntry.getIntoNode().getName() == 'terrain':
             base.camera.setZ(camGroundEntry.getSurfacePoint(render).getZ() + 1.5)
         
-        # Let the camera look at the floater object above Ralph.
+        # Let the camera look at the floater object above Eve.
         base.camera.lookAt(self.floater)
         
         return Task.cont
+    
+    def dropItem(self):
+        self.player.dropItem()
     
     def getGroundEntry(self, collisionHandler):
         # Put all the collision entries into a Python list so we can sort it,

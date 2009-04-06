@@ -66,21 +66,61 @@ class Entity():
             return None
 
 
-class Baseball(Entity):
-    def getModel(self):
-        return loader.loadModel("models/baseball/baseball.egg")
+class ItemEntity(Entity):
+    def attachTo(self, joint, model):
+        assert self.model.getParent() == render
+        
+        self.model.setPos(0, 0, 0)
+        self.model.reparentTo(joint)
+        self.maintainScaleRelativeTo(model)
+    
+    def detachAt(self, pos):
+        assert self.model.getParent() <> render
+        
+        self.model.reparentTo(render)
+        self.model.setPos(pos)
+        self.restoreScale()
+    
+    def maintainScaleRelativeTo(self, other):
+        other_scale = other.getScale()[0]
+        scale = self.model.getScale()[0]
+        self.model.setScale(scale / other_scale)
+        self.originalScale = scale
+    
+    def restoreScale(self):
+        self.model.setScale(self.originalScale)
+        del self.originalScale
 
 
 class PlayerEntity(Entity):
     def postInit(self):
         self.isMoving = False
         self.model.setScale(0.2)
-        
+
         self.rightHand = self.model.exposeJoint(None, 'modelRoot', 'RightHand')
+
+        self.item = None
+
+    def pickUpItem(self, item):
+        """Pick up an item. If the player is already holding an item, it is not picked
+        up."""
+        if self.item is not None:
+            return
+
+        item.attachTo(self.rightHand, self.model)
+        self.item = item
     
+    def dropItem(self):
+        """Drop the item the player is currently holding, if any."""
+        if self.item is None:
+            return
+        
+        self.item.detachAt(self.model.getPos())
+        self.item = None
+
     def forceMove(self, timePassed):
         self.prevPos = self.model.getPos()
-        
+
         # process the controls
         if self.world.keys.isPressed('left'):
             self.model.setH(self.model.getH() + timePassed * 150)
@@ -90,7 +130,7 @@ class PlayerEntity(Entity):
             self.model.setY(self.model, -(timePassed*25))
         if self.world.keys.isPressed('backward'):
             self.model.setY(self.model, timePassed*25)
-        
+
         if self.world.keys.isPressed('forward') or self.world.keys.isPressed('backward'):
             if self.isMoving is False:
                 self.model.loop('run')
@@ -99,6 +139,14 @@ class PlayerEntity(Entity):
                 self.model.stop()
                 self.model.pose('walk', 5)
                 self.isMoving = False
+
+
+class Baseball(ItemEntity):    
+    def getModel(self):
+        return loader.loadModel("models/baseball/baseball.egg")
+    
+    def postInit(self):
+        self.model.setScale(0.5)
 
 
 class Ralph(PlayerEntity):
