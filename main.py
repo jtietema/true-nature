@@ -7,7 +7,7 @@ from pandac.PandaModules import PandaNode, NodePath, Camera, TextNode
 from pandac.PandaModules import Vec3, Vec4, BitMask32
 from pandac.PandaModules import CollisionTraverser, CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
-from pandac.PandaModules import ModifierButtons
+from pandac.PandaModules import ModifierButtons, PhysicsCollisionHandler, LinearVectorForce, ForceNode
 from direct.actor.Actor import Actor
 import keys
 
@@ -19,6 +19,9 @@ class World(DirectObject):
         self.isWalking = False
         
         base.win.setClearColor(Vec4(0, 0, 0, 1))
+        
+        # enable physics (and particle) engine 
+        base.enableParticles()
         
         # set defailt key actions
         self.keyMap = {}
@@ -35,26 +38,27 @@ class World(DirectObject):
         # models that we want to use as a dictionary, where we can use to
         # keys to refer to the animations later on. The start point of Ralph
         # is hardcoded in the world model somewhere, so we look that up.
-        self.ralph = Ralph(self, self.env.find('**/start_point').getPos())
-        self.ralph.model.reparentTo(render)
+        self.ralph = Ralph('ralph', self, self.env.find('**/start_point').getPos())
+        self.ralph.nodePath.setZ(self.ralph.nodePath.getZ() + 10)
+        self.ralph.nodePath.reparentTo(render)
         
         # Create a floater object that always floats 2 units above Ralph.
         # We make sure that it is attached to Ralph by reparenting it to
         # Ralph's object instance.
         self.floater = NodePath(PandaNode('floater'))
-        self.floater.reparentTo(self.ralph.model)
+        self.floater.reparentTo(self.ralph.nodePath)
         self.floater.setZ(self.floater.getZ() + 2)
         
         # load baseball
-        self.baseball = Baseball(self, self.ralph.model.getPos())
-        self.baseball.model.reparentTo(render)
+        self.baseball = Baseball('baseball', self, self.ralph.nodePath.getPos())
+        self.baseball.nodePath.reparentTo(render)
         
         # Disable any mouse input, including moving the camera around with
         # the mouse.
         base.disableMouse()
         
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.ralph.model.getX(), self.ralph.model.getY() + 10, 2)
+        base.camera.setPos(self.ralph.nodePath.getX(), self.ralph.nodePath.getY() + 10, 2)
         
         # Disable modifier button compound events.
         base.mouseWatcherNode.setModifierButtons(ModifierButtons())
@@ -69,7 +73,8 @@ class World(DirectObject):
             'arrow_right':  'right',
             'arrow_up':     'forward',
             'arrow_down':   'backward',
-            'shift':        'shift'
+            'shift':        'shift',
+            'r':            'reset'
         })
         
         # Schedule the move method to be executed in the game's main loop.
@@ -93,6 +98,17 @@ class World(DirectObject):
         self.camGroundHandler = CollisionHandlerQueue()
         self.cTrav.addCollider(camGroundColNp, self.camGroundHandler)
         
+        self.pusher = PhysicsCollisionHandler()
+        
+        # create gravity
+        gravityFN=ForceNode('world-forces')
+        gravityFNP=render.attachNewNode(gravityFN)
+        gravityForce=LinearVectorForce(0,0,-9.81) #gravity acceleration
+        gravityFN.addForce(gravityForce)
+
+        base.physicsMgr.addLinearForce(gravityForce)
+
+        
                 
     def setKey(self, key, value):
         self.keyMap[key] = value
@@ -104,17 +120,17 @@ class World(DirectObject):
         # update ralph
         self.ralph.forceMove(timePassed)
         
-        # Do collision detection. This iterates all the collider nodes and 
+        # Do collision detection. This iterates all the collider nodes
         self.cTrav.traverse(render)
         
         # check if ralph's move is valid
         self.ralph.validateMove()
         
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.ralph.model.getPos())
+        base.camera.setPos(self.ralph.nodePath.getPos())
 
         # Set the heading, pitch and roll of the camera.
-        base.camera.setHpr(self.ralph.model.getHpr())
+        base.camera.setHpr(self.ralph.nodePath.getHpr())
         
         base.camera.setY(base.camera, 10)
         
