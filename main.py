@@ -12,7 +12,7 @@ from pandac.PandaModules import ModifierButtons
 from direct.actor.Actor import Actor
 import keys
 
-from entity import Entity, Ralph, Baseball, Panda
+from entity import Entity, Eve, Ralph, Baseball, Panda
 
 class World(DirectObject):
     def __init__(self):        
@@ -22,7 +22,7 @@ class World(DirectObject):
         self.keyMap = {}
         
         # Load the environment in which Ralph will walk. Set its parent
-        # to the render variable so that it is a top-level node.
+        # to the render variable so that it is a top-lralphl node.
         self.env = loader.loadModel('models/world/world.egg.pz')
         self.env.reparentTo(render)
         self.env.setPos(0, 0, 0)
@@ -58,7 +58,7 @@ class World(DirectObject):
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.ralph.model.getX(), self.ralph.model.getY() + 10, 2)
         
-        # Disable modifier button compound events.
+        # Disable modifier button compound ralphnts.
         base.mouseWatcherNode.setModifierButtons(ModifierButtons())
         base.buttonThrowers[0].node().setModifierButtons(ModifierButtons())
 

@@ -6,6 +6,7 @@ from pandac.PandaModules import CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
 from pandac.PandaModules import BitMask32, Point3
 
+
 class Entity():
     def __init__(self, world, pos):
         self.world = world
@@ -64,20 +65,18 @@ class Entity():
         else:
             return None
 
+
 class Baseball(Entity):
     def getModel(self):
         return loader.loadModel("models/baseball/baseball.egg")
 
-class Ralph(Entity):
-    def getModel(self):
-        return Actor('models/ralph/ralph.egg.pz', {
-            'run': 'models/ralph/ralph-run.egg.pz',
-            'walk': 'models/ralph/ralph-walk.egg.pz'
-        })
-    
+
+class PlayerEntity(Entity):
     def postInit(self):
         self.isMoving = False
         self.model.setScale(0.2)
+        
+        self.rightHand = self.model.exposeJoint(None, 'modelRoot', 'RightHand')
     
     def forceMove(self, timePassed):
         self.prevPos = self.model.getPos()
@@ -100,6 +99,23 @@ class Ralph(Entity):
                 self.model.stop()
                 self.model.pose('walk', 5)
                 self.isMoving = False
+
+
+class Ralph(PlayerEntity):
+    def getModel(self):
+        return Actor('models/ralph/ralph.egg.pz', {
+            'run': 'models/ralph/ralph-run.egg.pz',
+            'walk': 'models/ralph/ralph-walk.egg.pz'
+        })
+
+
+class Eve(PlayerEntity):
+    def getModel(self):
+        return Actor('models/eve/eve.egg', {
+            'run': 'models/eve/eve-run.egg',
+            'walk': 'models/eve/eve-walk.egg'
+        })
+
 
 class Panda(Entity):
     def getModel(self):
