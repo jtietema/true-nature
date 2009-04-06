@@ -1,7 +1,10 @@
+import random
+import time
+
 from direct.actor.Actor import Actor
 from pandac.PandaModules import CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
-from pandac.PandaModules import BitMask32
+from pandac.PandaModules import BitMask32, Point3
 
 class Entity():
     def __init__(self, world, pos):
@@ -37,10 +40,12 @@ class Entity():
         if entityGroundEntry is not None and entityGroundEntry.getIntoNode().getName() == 'terrain':
             # Limit Ralph's Z to the highest Z found in the collision entries list.
             self.model.setZ(entityGroundEntry.getSurfacePoint(render).getZ())
+            return True
         else:
             # We are outside the map, or trying to access an area that we cannot enter.
             # Prevent the move.
             self.model.setPos(self.prevPos)
+            return False
         
     def getGroundEntry(self, collisionHandler):
         # Put all the collision entries into a Python list so we can sort it,
@@ -95,7 +100,33 @@ class Ralph(Entity):
                 self.model.stop()
                 self.model.pose('walk', 5)
                 self.isMoving = False
+
+class Panda(Entity):
+    def getModel(self):
+        return Actor('models/panda/panda-model.egg.pz', {
+            'walk': 'models/panda/panda-walk4.egg.pz'
+        })
+    
+    def postInit(self):
+        random.seed()
         
-
-
-
+        # The panda is huge! Scale it down so we can actually see it.
+        self.model.setScale(0.005)
+                
+        self.speed = 200
+        self.model.loop('walk')
+        self.setRandomDestination()
+    
+    def setDestination(self, x, y):
+        self.model.lookAt(Point3(x, y, 0))
+    
+    def setRandomDestination(self):
+        self.setDestination(random.randint(-120, 50), random.randint(-70, 50))
+        
+    def forceMove(self, timePassed):
+        self.prevPos = self.model.getPos()
+        self.model.setY(self.model, -(timePassed * self.speed))
+    
+    def validateMove(self):
+        if not Entity.validateMove(self):
+            self.setRandomDestination()

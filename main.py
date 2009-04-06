@@ -1,4 +1,5 @@
 import sys
+import random
 
 import direct.directbase.DirectStart
 from direct.task import Task
@@ -11,13 +12,10 @@ from pandac.PandaModules import ModifierButtons
 from direct.actor.Actor import Actor
 import keys
 
-from entity import Entity, Ralph, Baseball
+from entity import Entity, Ralph, Baseball, Panda
 
 class World(DirectObject):
-    def __init__(self):
-        self.isMoving = False
-        self.isWalking = False
-        
+    def __init__(self):        
         base.win.setClearColor(Vec4(0, 0, 0, 1))
         
         # set defailt key actions
@@ -48,6 +46,10 @@ class World(DirectObject):
         # load baseball
         self.baseball = Baseball(self, self.ralph.model.getPos())
         self.baseball.model.reparentTo(render)
+        
+        # Load the panda bear
+        self.panda = Panda(self, self.ralph.model.getPos())
+        self.panda.model.reparentTo(render)
         
         # Disable any mouse input, including moving the camera around with
         # the mouse.
@@ -103,12 +105,14 @@ class World(DirectObject):
 
         # update ralph
         self.ralph.forceMove(timePassed)
+        self.panda.forceMove(timePassed)
         
         # Do collision detection. This iterates all the collider nodes and 
         self.cTrav.traverse(render)
         
         # check if ralph's move is valid
         self.ralph.validateMove()
+        self.panda.validateMove()
         
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.ralph.model.getPos())
