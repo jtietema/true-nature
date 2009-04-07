@@ -8,7 +8,7 @@ from pandac.PandaModules import PandaNode, NodePath, Camera, TextNode
 from pandac.PandaModules import Vec3, Vec4, BitMask32
 from pandac.PandaModules import CollisionTraverser, CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
-from pandac.PandaModules import ModifierButtons
+from pandac.PandaModules import ModifierButtons, PhysicsCollisionHandler, LinearVectorForce, ForceNode
 from direct.actor.Actor import Actor
 import keys
 
@@ -17,6 +17,9 @@ from entity import Entity, Ralph, Eve, Baseball, Panda
 class World(DirectObject):
     def __init__(self):        
         base.win.setClearColor(Vec4(0, 0, 0, 1))
+        
+        # enable physics (and particle) engine 
+        base.enableParticles()
         
         # set defailt key actions
         self.keyMap = {}
@@ -33,31 +36,32 @@ class World(DirectObject):
         # models that we want to use as a dictionary, where we can use to
         # keys to refer to the animations later on. The start point of Eve
         # is hardcoded in the world model somewhere, so we look that up.
-        self.player = Eve(self, self.env.find('**/start_point').getPos())
-        self.player.model.reparentTo(render)
+        self.player = Eve('Eve', self, self.env.find('**/start_point').getPos())
+        self.player.nodePath.setZ(self.player.nodePath.getZ() + 10)
+        self.player.nodePath.reparentTo(render)
         
         # Create a floater object that always floats 2 units above Eve.
         # We make sure that it is attached to Eve by reparenting it to
         # Eve's object instance.
         self.floater = NodePath(PandaNode('floater'))
-        self.floater.reparentTo(self.player.model)
+        self.floater.reparentTo(self.player.nodePath)
         self.floater.setZ(self.floater.getZ() + 2)
         
         # load baseball
-        self.baseball = Baseball(self, self.player.model.getPos())
-        self.baseball.model.reparentTo(render)
+        self.baseball = Baseball('baseball', self, self.player.nodePath.getPos())
+        self.baseball.nodePath.reparentTo(render)
         self.player.pickUpItem(self.baseball)
         
         # Load the panda bear
-        self.panda = Panda(self, self.player.model.getPos())
-        self.panda.model.reparentTo(render)
+        self.panda = Panda('panda', self, self.player.nodePath.getPos())
+        self.panda.nodePath.reparentTo(render)
         
         # Disable any mouse input, including moving the camera around with
         # the mouse.
         base.disableMouse()
         
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.player.model.getX(), self.player.model.getY() + 10, 2)
+        base.camera.setPos(self.player.nodePath.getX(), self.player.nodePath.getY() + 10, 2)
         
         # Disable modifier button compound playernts.
         base.mouseWatcherNode.setModifierButtons(ModifierButtons())
@@ -73,7 +77,8 @@ class World(DirectObject):
             'arrow_right':  'right',
             'arrow_up':     'forward',
             'arrow_down':   'backward',
-            'shift':        'shift'
+            'shift':        'shift',
+            'r':            'reset'
         })
         
         # Schedule the move method to be executed in the game's main loop.
@@ -97,6 +102,18 @@ class World(DirectObject):
         self.camGroundHandler = CollisionHandlerQueue()
         self.cTrav.addCollider(camGroundColNp, self.camGroundHandler)
         
+        self.pusher = PhysicsCollisionHandler()
+        self.pusher.addInPattern('col-%fn-into')
+        
+        # create gravity
+        gravityFN=ForceNode('world-forces')
+        gravityFNP=render.attachNewNode(gravityFN)
+        gravityForce=LinearVectorForce(0,0,-9.81) #gravity acceleration
+        gravityFN.addForce(gravityForce)
+
+        base.physicsMgr.addLinearForce(gravityForce)
+
+        
                 
     def setKey(self, key, value):
         self.keyMap[key] = value
@@ -109,7 +126,7 @@ class World(DirectObject):
         self.player.forceMove(timePassed)
         self.panda.forceMove(timePassed)
         
-        # Do collision detection. This iterates all the collider nodes and 
+        # Do collision detection. This iterates all the collider nodes
         self.cTrav.traverse(render)
         
         # check if player's move is valid
@@ -117,10 +134,10 @@ class World(DirectObject):
         self.panda.validateMove()
         
         # Set the initial position for the camera as X, Y and Z values.
-        base.camera.setPos(self.player.model.getPos())
+        base.camera.setPos(self.player.nodePath.getPos())
 
         # Set the heading, pitch and roll of the camera.
-        base.camera.setHpr(self.player.model.getHpr())
+        base.camera.setHpr(self.player.nodePath.getHpr())
         
         base.camera.setY(base.camera, 10)
         

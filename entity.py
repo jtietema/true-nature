@@ -2,51 +2,47 @@ import random
 import time
 
 from direct.actor.Actor import Actor
-from pandac.PandaModules import CollisionNode
-from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
-from pandac.PandaModules import BitMask32, Point3
+from direct.showbase.DirectObject import DirectObject
+from pandac.PandaModules import ActorNode, CollisionNode, CollisionHandlerQueue, ForceNode, LinearVectorForce
+from pandac.PandaModules import CollisionRay, BitMask32, NodePath, CollisionSphere, CollisionTube, Point3
 
-
-class Entity():
-    def __init__(self, world, pos):
+class Entity(ActorNode):
+    def __init__(self, name, world, pos):
+        ActorNode.__init__(self, name)
+        
+        self.nodePath = NodePath(self)
+        
         self.world = world
+        
         # init the model or the Actor
         self.model = self.getModel()
-        self.model.setPos(*pos)
+        self.model.reparentTo(self.nodePath)
         
-        self.prevPos = self.model.getPos()
+        self.nodePath.setPos(*pos)
         
-        # collision traversable
-        self.cTrav = world.cTrav
+        self.prevPos = self.nodePath.getPos()
         
-        # collision detection with the ground
-        groundRay = CollisionRay()
-        groundRay.setOrigin(0, 0, 1000)
-        groundRay.setDirection(0, 0, -1)
-        groundCol = CollisionNode('camRay')
-        groundCol.addSolid(groundRay)
-        groundCol.setFromCollideMask(BitMask32.bit(0))
-        groundCol.setIntoCollideMask(BitMask32.allOff())
-        groundColNp = self.model.attachNewNode(groundCol)
-        self.groundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(groundColNp, self.groundHandler)
+        # add actor to physics engine
+        base.physicsMgr.attachPhysicalNode(self)
+        
+        # collision detection
+        fromObject = self.nodePath.attachNewNode(CollisionNode(name))
+        self.addSolids(fromObject)
+        fromObject.show()
+
+        self.world.cTrav.addCollider(fromObject, self.world.pusher)
+        self.world.pusher.addCollider(fromObject, self.nodePath)
         
         self.postInit()
     
     def postInit(self):
         pass
+    
+    def addSolids(self, fromObject):
+        fromObject.node().addSolid(CollisionSphere(0, 0, 0, 0.5))
         
     def validateMove(self):
-        entityGroundEntry = self.getGroundEntry(self.groundHandler)
-        if entityGroundEntry is not None and entityGroundEntry.getIntoNode().getName() == 'terrain':
-            # Limit Ralph's Z to the highest Z found in the collision entries list.
-            self.model.setZ(entityGroundEntry.getSurfacePoint(render).getZ())
-            return True
-        else:
-            # We are outside the map, or trying to access an area that we cannot enter.
-            # Prevent the move.
-            self.model.setPos(self.prevPos)
-            return False
+        pass
         
     def getGroundEntry(self, collisionHandler):
         # Put all the collision entries into a Python list so we can sort it,
@@ -65,10 +61,9 @@ class Entity():
         else:
             return None
 
-
 class ItemEntity(Entity):
     def attachTo(self, joint, model):
-        assert self.model.getParent() == render
+        assert self.nodePath.getParent() == render
         
         self.model.setPos(0, 0, 0)
         self.model.reparentTo(joint)
@@ -91,11 +86,29 @@ class ItemEntity(Entity):
         self.model.setScale(self.originalScale)
         del self.originalScale
 
+class Baseball(ItemEntity):
+    def postInit(self):
+        self.getPhysicsObject().setMass(0.2)
+        self.model.setScale(0.5)
+    
+    def addSolids(self, fromObject):
+        fromObject.node().addSolid(CollisionSphere(0, 0, 0, 0.2))
+    
+    def getModel(self):
+        return loader.loadModel("models/baseball/baseball.egg")
 
 class PlayerEntity(Entity):
     def postInit(self):
         self.isMoving = False
         self.model.setScale(0.2)
+        forceNode = ForceNode('forwardforce')
+        self.nodePath.attachNewNode(forceNode)
+        self.force = LinearVectorForce(0,-20,0)
+#        self.force.setMassDependent(True)
+        self.getPhysicsObject().setMass(80)
+        self.force.setActive(False)
+        forceNode.addForce(self.force)
+        self.getPhysical(0).addLinearForce(self.force)
 
         self.rightHand = self.model.exposeJoint(None, 'modelRoot', 'RightHand')
 
@@ -110,6 +123,10 @@ class PlayerEntity(Entity):
         item.attachTo(self.rightHand, self.model)
         self.item = item
     
+    def addSolids(self, fromObject):
+        fromObject.node().addSolid(CollisionSphere(0, 0, 0.25, 0.3))
+        fromObject.node().addSolid(CollisionSphere(0, 0, 0.75, 0.3))
+    
     def dropItem(self):
         """Drop the item the player is currently holding, if any."""
         if self.item is None:
@@ -119,18 +136,26 @@ class PlayerEntity(Entity):
         self.item = None
 
     def forceMove(self, timePassed):
-        self.prevPos = self.model.getPos()
-
+        self.prevPos = self.nodePath.getPos()
+        
         # process the controls
         if self.world.keys.isPressed('left'):
-            self.model.setH(self.model.getH() + timePassed * 150)
+            self.nodePath.setH(self.nodePath.getH() + timePassed * 150)
         if self.world.keys.isPressed('right'):
-            self.model.setH(self.model.getH() - timePassed * 150)
+            self.nodePath.setH(self.nodePath.getH() - timePassed * 150)
         if self.world.keys.isPressed('forward'):
-            self.model.setY(self.model, -(timePassed*25))
-        if self.world.keys.isPressed('backward'):
-            self.model.setY(self.model, timePassed*25)
-
+            self.force.setActive(True)
+            self.force.setAmplitude(1)
+        elif self.world.keys.isPressed('backward'):
+            self.force.setActive(True)
+            self.force.setAmplitude(-1)
+        else:
+            # reset force
+            self.force.setActive(False)
+        if self.world.keys.isPressed('reset'):
+            self.nodePath.setPos(self.world.env.find('**/start_point').getPos())
+            self.nodePath.setZ(self.nodePath, 5)
+        
         if self.world.keys.isPressed('forward') or self.world.keys.isPressed('backward'):
             if self.isMoving is False:
                 self.model.loop('run')
@@ -139,15 +164,6 @@ class PlayerEntity(Entity):
                 self.model.stop()
                 self.model.pose('walk', 5)
                 self.isMoving = False
-
-
-class Baseball(ItemEntity):    
-    def getModel(self):
-        return loader.loadModel("models/baseball/baseball.egg")
-    
-    def postInit(self):
-        self.model.setScale(0.5)
-
 
 class Ralph(PlayerEntity):
     def getModel(self):
@@ -165,11 +181,15 @@ class Eve(PlayerEntity):
         })
 
 
-class Panda(Entity):
+class Panda(Entity, DirectObject):
     def getModel(self):
         return Actor('models/panda/panda-model.egg.pz', {
             'walk': 'models/panda/panda-walk4.egg.pz'
         })
+    
+    def addSolids(self, fromObject):
+        fromObject.node().addSolid(CollisionSphere(0, 0, 1.5, 1.5))
+        fromObject.node().addSolid(CollisionSphere(0, -2, 1.5, 0.75))
     
     def postInit(self):
         random.seed()
@@ -177,17 +197,26 @@ class Panda(Entity):
         # The panda is huge! Scale it down so we can actually see it.
         self.model.setScale(0.005)
                 
-        self.speed = 200
+        self.speed = 2
         self.model.loop('walk')
         self.setRandomHeading()
+        
+        self.accept('col-panda-into', self.newHeadingCallback)
     
     def setRandomHeading(self):
-        self.model.setH(random.randint(0, 360))
+        self.nodePath.setH(random.randint(0, 360))
         
     def forceMove(self, timePassed):
         self.prevPos = self.model.getPos()
-        self.model.setY(self.model, -(timePassed * self.speed))
+        self.nodePath.setY(self.nodePath, -(timePassed * self.speed))
+        if self.world.keys.isPressed('reset'):
+            self.nodePath.setPos(self.world.env.find('**/start_point').getPos())
+            self.nodePath.setZ(self.nodePath, 5)
+    
+    def newHeadingCallback(self, entry):
+        self.setRandomHeading()
+        #print 'New heading callback'
+        #print 'Collision with:', entry.getInto().getName()
     
     def validateMove(self):
-        if not Entity.validateMove(self):
-            self.setRandomDestination()
+        pass
