@@ -102,7 +102,10 @@ class World(DirectObject):
         self.camGroundHandler = CollisionHandlerQueue()
         self.cTrav.addCollider(camGroundColNp, self.camGroundHandler)
         
+        # register the physics pusher
         self.pusher = PhysicsCollisionHandler()
+        
+        # register collision event pattern names
         self.pusher.addInPattern('col-%fn-into')
         
         # create gravity

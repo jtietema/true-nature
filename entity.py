@@ -36,15 +36,20 @@ class Entity(ActorNode):
         self.postInit()
     
     def postInit(self):
+        '''Subclasses can override this method to add stuff after the init'''
         pass
     
     def addSolids(self, fromObject):
+        '''Subclasses can override this method to add sollids for collision
+        detection to match their model and size. Below is a default'''
         fromObject.node().addSolid(CollisionSphere(0, 0, 0, 0.5))
         
     def validateMove(self):
+        '''Deprecated'''
         pass
         
     def getGroundEntry(self, collisionHandler):
+        '''Deprecated. Not used anymore'''
         # Put all the collision entries into a Python list so we can sort it,
         # properly.
         entries = []
@@ -63,6 +68,7 @@ class Entity(ActorNode):
 
 class ItemEntity(Entity):
     def attachTo(self, joint, model):
+        # TODO: reparent model, leaves collision solids lying arround
         assert self.nodePath.getParent() == render
         
         self.model.setPos(0, 0, 0)
@@ -70,6 +76,7 @@ class ItemEntity(Entity):
         self.maintainScaleRelativeTo(model)
     
     def detachAt(self, pos):
+        # TODO: reparent model, leaves collision solids lying arround
         assert self.model.getParent() <> render
         
         self.model.reparentTo(render)
@@ -201,6 +208,7 @@ class Panda(Entity, DirectObject):
         self.model.loop('walk')
         self.setRandomHeading()
         
+        # accept collision events
         self.accept('col-panda-into', self.newHeadingCallback)
     
     def setRandomHeading(self):
