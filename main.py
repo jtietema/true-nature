@@ -8,7 +8,7 @@ from pandac.PandaModules import PandaNode, NodePath, Camera, TextNode
 from pandac.PandaModules import Vec3, Vec4, BitMask32
 from pandac.PandaModules import CollisionTraverser, CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
-from pandac.PandaModules import ModifierButtons, PhysicsCollisionHandler, LinearVectorForce, ForceNode
+from pandac.PandaModules import ModifierButtons, PhysicsCollisionHandler, LinearVectorForce, ForceNode, AngularEulerIntegrator
 from direct.actor.Actor import Actor
 import keys
 
@@ -112,9 +112,13 @@ class World(DirectObject):
         gravityFN=ForceNode('world-forces')
         gravityFNP=render.attachNewNode(gravityFN)
         gravityForce=LinearVectorForce(0,0,-9.81) #gravity acceleration
+        #gravityForce.setMassDependent(True)
         gravityFN.addForce(gravityForce)
 
         base.physicsMgr.addLinearForce(gravityForce)
+        
+        angleInt = AngularEulerIntegrator() # Instantiate an AngleIntegrator()
+        base.physicsMgr.attachAngularIntegrator(angleInt) # Attatch the AngleIntegrator to the PhysicsManager
 
         
                 
