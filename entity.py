@@ -222,9 +222,8 @@ class Panda(Entity, DirectObject):
             self.nodePath.setZ(self.nodePath, 5)
     
     def newHeadingCallback(self, entry):
-        self.setRandomHeading()
-        #print 'New heading callback'
-        #print 'Collision with:', entry.getInto().getName()
+        if entry.getIntoNodePath().getName() != 'terrain':
+            self.setRandomHeading()
     
     def validateMove(self):
         pass
