@@ -179,13 +179,10 @@ class Panda(Entity):
                 
         self.speed = 200
         self.model.loop('walk')
-        self.setRandomDestination()
+        self.setRandomHeading()
     
-    def setDestination(self, x, y):
-        self.model.lookAt(Point3(x, y, 0))
-    
-    def setRandomDestination(self):
-        self.setDestination(random.randint(-120, 50), random.randint(-70, 50))
+    def setRandomHeading(self):
+        self.model.setH(random.randint(0, 360))
         
     def forceMove(self, timePassed):
         self.prevPos = self.model.getPos()
