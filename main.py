@@ -160,7 +160,7 @@ class World(DirectObject):
                 p = -my * 0.1
                 
                 base.camera.setHpr(base.camera, h, p, 0)
-                self.player.model.setH(h)
+                self.player.model.setH(self.player.model, h)
             else:
                 # Set the heading, pitch and roll of the camera.
                 base.camera.setHpr(self.player.model.getHpr())
