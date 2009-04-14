@@ -9,8 +9,11 @@ from pandac.PandaModules import Vec3, Vec4, BitMask32
 from pandac.PandaModules import CollisionTraverser, CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
 from pandac.PandaModules import ModifierButtons
+from pandac.PandaModules import WindowProperties
 from direct.actor.Actor import Actor
+
 import keys
+import mouse
 
 from entity import Entity, Ralph, Eve, Baseball, Panda
 
@@ -18,8 +21,8 @@ class World(DirectObject):
     def __init__(self):        
         base.win.setClearColor(Vec4(0, 0, 0, 1))
         
-        # set defailt key actions
-        self.keyMap = {}
+        self.throwMode = False
+        self.freelook = False
         
         # Load the environment in which Eve will walk. Set its parent
         # to the render variable so that it is a top-lplayerl node.
@@ -52,21 +55,30 @@ class World(DirectObject):
         self.panda = Panda(self, self.player.model.getPos())
         self.panda.model.reparentTo(render)
         
-        # Disable any mouse input, including moving the camera around with
-        # the mouse.
+        # Disable controlling the camera using the mouse. Note that this does
+        # not disable the mouse completely, it merely disables the camera
+        # movement by mouse.
         base.disableMouse()
+        
+        self.hideMouseCursor()
         
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.player.model.getX(), self.player.model.getY() + 10, 2)
         
-        # Disable modifier button compound playernts.
+        # Disable modifier button compound events.
         base.mouseWatcherNode.setModifierButtons(ModifierButtons())
         base.buttonThrowers[0].node().setModifierButtons(ModifierButtons())
 
-        # init the control callbacks
+        # Register any control callbacks.
         self.accept('escape', sys.exit)
         self.accept('d', self.dropItem)
+        self.accept('f', self.toggleFullscreen)
         
+        self.accept('space', self.enterThrowMode)
+        self.accept('space-up', self.leaveThrowMode)
+        
+        # Also make sure that we can, at any time, request the state (pressed
+        # or not) for these keys.
         self.keys = keys.KeyStateManager()
         self.keys.registerKeys({
             'arrow_left':   'left',
@@ -76,10 +88,32 @@ class World(DirectObject):
             'shift':        'shift'
         })
         
+        self.mouse = mouse.MousePointerManager(0)
+        
         # Schedule the move method to be executed in the game's main loop.
-        taskMgr.add(self.move, 'move')
+        taskMgr.add(self.update, 'update')
     
+    def hideMouseCursor(self):
+        props = WindowProperties()
+        props.setCursorHidden(True)
+        base.win.requestProperties(props)
     
+    def toggleFullscreen(self):
+        props = WindowProperties()
+        props.setFullscreen(not base.win.getProperties().getFullscreen())
+        base.win.requestProperties(props)
+    
+    def enableFreelook(self):        
+        self.freelook = True
+
+        # Make sure we reset the MouseMovementManager's last known mouse position,
+        # so we don't get a huge delta on the first attempt.
+        self.mouse.reset()
+        
+        base.camera.setP(0)
+    
+    def disableFreelook(self):
+        self.freelook = False
     
     def createCollisionHandlers(self):
         # Create a new collision traverser instance. We will use this to determine
@@ -96,12 +130,8 @@ class World(DirectObject):
         camGroundColNp = base.camera.attachNewNode(camGroundCol)
         self.camGroundHandler = CollisionHandlerQueue()
         self.cTrav.addCollider(camGroundColNp, self.camGroundHandler)
-        
-                
-    def setKey(self, key, value):
-        self.keyMap[key] = value
     
-    def move(self, task):        
+    def update(self, task):        
         # get the time passed since the last frame
         timePassed = globalClock.getDt()
 
@@ -118,18 +148,36 @@ class World(DirectObject):
         
         # Set the initial position for the camera as X, Y and Z values.
         base.camera.setPos(self.player.model.getPos())
+        
+        if self.throwMode:
+            # Position the camera a bit above the ground.
+            base.camera.setZ(base.camera, 1.5)
+            
+            if self.freelook:                
+                mx, my = self.mouse.getDelta()
+                
+                h = -mx * 0.1
+                p = -my * 0.1
+                
+                base.camera.setHpr(base.camera, h, p, 0)
+                self.player.model.setH(h)
+            else:
+                # Set the heading, pitch and roll of the camera.
+                base.camera.setHpr(self.player.model.getHpr())
+        else:
+            # Set the heading, pitch and roll of the camera.
+            base.camera.setHpr(self.player.model.getHpr())
+            
+            # Position the camera somewhat behind the player.
+            base.camera.setY(base.camera, 10)
 
-        # Set the heading, pitch and roll of the camera.
-        base.camera.setHpr(self.player.model.getHpr())
-        
-        base.camera.setY(base.camera, 10)
-        
-        camGroundEntry = self.getGroundEntry(self.camGroundHandler)
-        if camGroundEntry is not None and camGroundEntry.getIntoNode().getName() == 'terrain':
-            base.camera.setZ(camGroundEntry.getSurfacePoint(render).getZ() + 1.5)
-        
-        # Let the camera look at the floater object above Eve.
-        base.camera.lookAt(self.floater)
+            # Make sure the camera is above the ground.
+            camGroundEntry = self.getGroundEntry(self.camGroundHandler)
+            if camGroundEntry is not None and camGroundEntry.getIntoNode().getName() == 'terrain':
+                base.camera.setZ(camGroundEntry.getSurfacePoint(render).getZ() + 1.5)
+
+            # Let the camera look at the floater object above Eve.
+            base.camera.lookAt(self.floater)
         
         return Task.cont
     
@@ -152,6 +200,16 @@ class World(DirectObject):
             return entries[0]
         else:
             return None
+        
+    def enterThrowMode(self):
+        self.throwMode = True
+        self.player.enterStrafeMode()
+        self.enableFreelook()
+    
+    def leaveThrowMode(self):
+        self.throwMode = False
+        self.player.leaveStrafeMode()
+        self.disableFreelook()
 
 w = World()
 run()

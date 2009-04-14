@@ -7,7 +7,7 @@ from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
 from pandac.PandaModules import BitMask32, Point3
 
 
-class Entity():
+class Entity():    
     def __init__(self, world, pos):
         self.world = world
         # init the model or the Actor
@@ -100,6 +100,15 @@ class PlayerEntity(Entity):
         self.rightHand = self.model.exposeJoint(None, 'modelRoot', 'RightHand')
 
         self.item = None
+        
+        # By default, the left and right keys rotate the player character.
+        self.strafeMode = False
+    
+    def enterStrafeMode(self):
+        self.strafeMode = True
+    
+    def leaveStrafeMode(self):
+        self.strafeMode = False
 
     def pickUpItem(self, item):
         """Pick up an item. If the player is already holding an item, it is not picked
@@ -117,19 +126,34 @@ class PlayerEntity(Entity):
         
         self.item.detachAt(self.model.getPos())
         self.item = None
+    
+    def handleControls(self, timePassed):
+        if self.strafeMode:
+            self.handleControlsStrafe(timePassed)
+        else:
+            self.handleControlsDefault(timePassed)
+        
+        if self.world.keys.isPressed('forward'):
+            self.model.setY(self.model, timePassed * -25)
+        if self.world.keys.isPressed('backward'):
+            self.model.setY(self.model, timePassed * 25)
+    
+    def handleControlsStrafe(self, timePassed):
+        if self.world.keys.isPressed('left'):
+            self.model.setX(self.model, timePassed * 15)
+        if self.world.keys.isPressed('right'):
+            self.model.setX(self.model, timePassed * -15)
+    
+    def handleControlsDefault(self, timePassed):
+        if self.world.keys.isPressed('left'):
+            self.model.setH(self.model, timePassed * 150)
+        if self.world.keys.isPressed('right'):
+            self.model.setH(self.model, timePassed * -150)
 
     def forceMove(self, timePassed):
         self.prevPos = self.model.getPos()
-
-        # process the controls
-        if self.world.keys.isPressed('left'):
-            self.model.setH(self.model.getH() + timePassed * 150)
-        if self.world.keys.isPressed('right'):
-            self.model.setH(self.model.getH() - timePassed * 150)
-        if self.world.keys.isPressed('forward'):
-            self.model.setY(self.model, -(timePassed*25))
-        if self.world.keys.isPressed('backward'):
-            self.model.setY(self.model, timePassed*25)
+        
+        self.handleControls(timePassed)
 
         if self.world.keys.isPressed('forward') or self.world.keys.isPressed('backward'):
             if self.isMoving is False:
@@ -190,4 +214,4 @@ class Panda(Entity):
     
     def validateMove(self):
         if not Entity.validateMove(self):
-            self.setRandomDestination()
+            self.setRandomHeading()
