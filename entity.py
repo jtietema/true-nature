@@ -132,6 +132,15 @@ class PlayerEntity(Entity):
         self.rightHand = self.model.exposeJoint(None, 'modelRoot', 'RightHand')
 
         self.item = None
+        
+        # By default, the left and right keys rotate the player character.
+        self.strafeMode = False
+    
+    def enterStrafeMode(self):
+        self.strafeMode = True
+    
+    def leaveStrafeMode(self):
+        self.strafeMode = False
 
     def pickUpItem(self, item):
         """Pick up an item. If the player is already holding an item, it is not picked
@@ -180,7 +189,7 @@ class PlayerEntity(Entity):
         if self.world.keys.isPressed('reset'):
             self.nodePath.setPos(self.world.env.find('**/start_point').getPos())
             self.nodePath.setZ(self.nodePath, 5)
-        
+
         if self.world.keys.isPressed('forward') or self.world.keys.isPressed('backward'):
             if self.isMoving is False:
                 self.model.loop('run')
