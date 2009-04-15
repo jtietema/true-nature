@@ -8,7 +8,7 @@ from pandac.PandaModules import PandaNode, NodePath, Camera, TextNode
 from pandac.PandaModules import Vec3, Vec4, BitMask32
 from pandac.PandaModules import CollisionTraverser, CollisionNode
 from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
-from pandac.PandaModules import ModifierButtons, PhysicsCollisionHandler, LinearVectorForce, ForceNode, AngularEulerIntegrator
+from pandac.PandaModules import ModifierButtons, CollisionHandlerPusher, LinearVectorForce, ForceNode, AngularEulerIntegrator
 from pandac.PandaModules import WindowProperties
 from direct.actor.Actor import Actor
 from direct.gui.OnscreenText import OnscreenText
@@ -23,7 +23,6 @@ class World(DirectObject):
         base.win.setClearColor(Vec4(0, 0, 0, 1))
         
         # enable physics (and particle) engine 
-        base.enableParticles()
         
         self.throwMode = False
         self.freelook = False
@@ -43,7 +42,7 @@ class World(DirectObject):
         # keys to refer to the animations later on. The start point of Eve
         # is hardcoded in the world model somewhere, so we look that up.
         self.player = Eve('Eve', self, self.env.find('**/start_point').getPos())
-        self.player.nodePath.setZ(self.player.nodePath.getZ() + 10)
+        #self.player.nodePath.setZ(self.player.nodePath.getZ() + 10)
         self.player.nodePath.reparentTo(render)
         
         # Create a floater object that always floats 2 units above Eve.
@@ -139,23 +138,12 @@ class World(DirectObject):
         self.camGroundHandler = CollisionHandlerQueue()
         self.cTrav.addCollider(camGroundColNp, self.camGroundHandler)
         
-        # register the physics pusher
-        self.pusher = PhysicsCollisionHandler()
+        # register the collision pusher
+        self.pusher = CollisionHandlerPusher()
         
         # register collision event pattern names
         self.pusher.addInPattern('col-%fn-into')
         
-        # create gravity
-        gravityFN=ForceNode('world-forces')
-        gravityFNP=render.attachNewNode(gravityFN)
-        gravityForce=LinearVectorForce(0,0,-9.81) #gravity acceleration
-        #gravityForce.setMassDependent(True)
-        gravityFN.addForce(gravityForce)
-
-        base.physicsMgr.addLinearForce(gravityForce)
-        
-        angleInt = AngularEulerIntegrator() # Instantiate an AngleIntegrator()
-        base.physicsMgr.attachAngularIntegrator(angleInt) # Attatch the AngleIntegrator to the PhysicsManager
     
     def update(self, task):        
         # get the time passed since the last frame

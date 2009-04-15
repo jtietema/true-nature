@@ -22,16 +22,25 @@ class Entity(ActorNode):
         
         self.prevPos = self.nodePath.getPos()
         
-        # add actor to physics engine
-        base.physicsMgr.attachPhysicalNode(self)
-        
         # collision detection
         fromObject = self.nodePath.attachNewNode(CollisionNode(name))
         self.addSolids(fromObject)
         fromObject.show()
-
-        self.world.cTrav.addCollider(fromObject, self.world.pusher)
-        self.world.pusher.addCollider(fromObject, self.nodePath)
+        
+        # setup the ground ray, needed for detecting the ground
+        groundRay = CollisionRay()
+        groundRay.setOrigin(0, 0, 1000)
+        groundRay.setDirection(0, 0, -1)
+        groundCol = CollisionNode('groundRay')
+        groundCol.addSolid(groundRay)
+        groundCol.setFromCollideMask(BitMask32.bit(0))
+        groundCol.setIntoCollideMask(BitMask32.allOff())
+        groundColNp = base.camera.attachNewNode(groundCol)
+        self.groundHandler = CollisionHandlerQueue()
+        self.world.cTrav.addCollider(groundColNp, self.groundHandler)
+        
+#        self.world.cTrav.addCollider(fromObject, self.world.pusher)
+#        self.world.pusher.addCollider(fromObject, self.nodePath)
         
         self.postInit()
     
@@ -45,8 +54,12 @@ class Entity(ActorNode):
         fromObject.node().addSolid(CollisionSphere(0, 0, 0, 0.5))
         
     def validateMove(self):
-        '''Deprecated'''
-        pass
+        # Make sure the entity is above the ground.
+        groundEntry = self.world.getGroundEntry(self.groundHandler)
+        if groundEntry is not None and groundEntry.getIntoNode().getName() == 'terrain':
+            self.nodePath.setZ(groundEntry.getSurfacePoint(render).getZ())
+        else:
+            self.nodePath.setPos(self.prevPos)
         
     def getGroundEntry(self, collisionHandler):
         '''Deprecated. Not used anymore'''
@@ -109,26 +122,6 @@ class PlayerEntity(Entity):
         self.isMoving = False
         self.model.setScale(0.2)
         
-        # force stuff
-        forceNode = ForceNode('forwardforce')
-        self.nodePath.attachNewNode(forceNode)
-        self.force = LinearVectorForce(0,-20,0)
-#        self.force.setMassDependent(True)
-        self.getPhysicsObject().setMass(80)
-        self.force.setActive(False)
-        forceNode.addForce(self.force)
-        self.getPhysical(0).addLinearForce(self.force)
-        
-        self.turnLeft=AngularVectorForce(1,0,0) # Spin around the positive-x axis 
-        forceNode.addForce(self.turnLeft) # Determine which positive-x axis we use for calculation
-        self.getPhysical(0).addAngularForce(self.turnLeft) # Add the force to the object
-        self.turnLeft.setActive(False)
-        
-        self.turnRight=AngularVectorForce(-1,0,0) # Spin around the positive-x axis 
-        forceNode.addForce(self.turnRight) # Determine which positive-x axis we use for calculation
-        self.getPhysical(0).addAngularForce(self.turnRight) # Add the force to the object
-        self.turnRight.setActive(False)
-        
         self.rightHand = self.model.exposeJoint(None, 'modelRoot', 'RightHand')
 
         self.item = None
@@ -168,27 +161,16 @@ class PlayerEntity(Entity):
         
         # process the controls
         if self.world.keys.isPressed('left'):
-            self.turnLeft.setActive(True)
-            self.turnRight.setActive(False)
-        elif self.world.keys.isPressed('right'):
-            self.turnRight.setActive(True)
-            self.turnLeft.setActive(False)
-        else:
-            self.turnLeft.setActive(False)
-            self.turnRight.setActive(False)
+            self.nodePath.setH(self.nodePath.getH() + (30 * timePassed))
+        if self.world.keys.isPressed('right'):
+            self.nodePath.setH(self.nodePath.getH() - (30 * timePassed))
         
         if self.world.keys.isPressed('forward'):
-            self.force.setActive(True)
-            self.force.setAmplitude(1)
-        elif self.world.keys.isPressed('backward'):
-            self.force.setActive(True)
-            self.force.setAmplitude(-1)
-        else:
-            # reset force
-            self.force.setActive(False)
+            self.nodePath.setY(self.nodePath, - (50 * timePassed))
+        if self.world.keys.isPressed('backward'):
+            self.nodePath.setY(self.nodePath, + (50 * timePassed))
         if self.world.keys.isPressed('reset'):
             self.nodePath.setPos(self.world.env.find('**/start_point').getPos())
-            self.nodePath.setZ(self.nodePath, 5)
 
         if self.world.keys.isPressed('forward') or self.world.keys.isPressed('backward'):
             if self.isMoving is False:
@@ -246,11 +228,10 @@ class Panda(Entity, DirectObject):
         self.nodePath.setY(self.nodePath, -(timePassed * self.speed))
         if self.world.keys.isPressed('reset'):
             self.nodePath.setPos(self.world.env.find('**/start_point').getPos())
-            self.nodePath.setZ(self.nodePath, 5)
+            #self.nodePath.setZ(self.nodePath, 5)
+            
     
     def newHeadingCallback(self, entry):
         if entry.getIntoNodePath().getName() != 'terrain':
             self.setRandomHeading()
     
-    def validateMove(self):
-        pass
