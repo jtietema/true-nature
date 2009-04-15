@@ -11,6 +11,7 @@ from pandac.PandaModules import CollisionHandlerQueue, CollisionRay
 from pandac.PandaModules import ModifierButtons, PhysicsCollisionHandler, LinearVectorForce, ForceNode, AngularEulerIntegrator
 from pandac.PandaModules import WindowProperties
 from direct.actor.Actor import Actor
+from direct.gui.OnscreenText import OnscreenText
 
 import keys
 import mouse
@@ -26,6 +27,8 @@ class World(DirectObject):
         
         self.throwMode = False
         self.freelook = False
+        
+        self.score = OnscreenText('0', pos=(-1.32, 0.9), fg=(1, 1, 1, 1), bg=(0, 0, 0, 0.5), scale=0.1, align=TextNode.ALeft)
         
         # Load the environment in which Eve will walk. Set its parent
         # to the render variable so that it is a top-lplayerl node.

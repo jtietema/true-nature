@@ -160,7 +160,7 @@ class PlayerEntity(Entity):
         if self.item is None:
             return
         
-        self.item.detachAt(self.model.getPos())
+        self.item.detachAt(self.nodePath.getPos())
         self.item = None
 
     def forceMove(self, timePassed):
